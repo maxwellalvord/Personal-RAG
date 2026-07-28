@@ -6,6 +6,20 @@ def get_weather(city):
     return f"its 72 and sunnny in {city}."
 
 
+golden_set = [
+    {
+        "question": "What's the weather in Portland?",
+        "must_contain": ["72", "sunny"],
+        "must_not_contain": ["get_weather", "function", "tool", "{", "}"],
+    },
+    {
+        "question": "Say hello to me.",
+        "must_contain": [],
+        "must_not_contain": ["get_weather", "function", "tool", "{", "}"],
+    },
+]
+
+
 tools = [
     {
         "type": "function",
@@ -40,25 +54,65 @@ def run(question):
 
     tool_calls = response.message.tool_calls
     if not tool_calls:
-        print("No tool needed.")
-        print("Answer:", response.message.content)
-        return
+        ans = response.message.content
+        return ans
 
     for call in tool_calls:
         name = call.function.name
         args = call.function.arguments
-        print(f"Model wants to call: {name}({args})")
 
         if name == "get_weather":
-            result =get_weather(**args)
-        else: 
-            result = "Unknown tool"
+            if "city" in args:
+                result = get_weather(**args)
+            else:
+                result = "Error: no city provided."
 
         # Give the result back to the model
         messages.append({"role": "tool", "name": name, "content": result})
 
     # second call
     final = ollama.chat(model=MODEL, messages=messages, tools=tools)
-    print("Final Answer:", final.message.content)
+    ans = final.message.content
+    return ans
 
-run("What's the weather in Portland?")
+def grade(answer, case):
+    answer = answer.lower()
+    must_contain = case["must_contain"]
+    must_not_contain = case["must_not_contain"]
+
+    for phrase in must_contain:
+        if phrase.lower() not in answer:
+            return False
+
+    for phrase in must_not_contain:
+        if phrase.lower() in answer:
+            return False
+
+    return True
+
+
+
+def loop():
+    grade_counter = 0
+    grade_total = len(golden_set)
+
+    for case in golden_set:
+        question = case["question"]
+        print(f"Question: {question}")
+        try:
+            answer = run(question)
+        except Exception as e:
+            answer = f"Error: {e}"
+            print(f"Error occurred: {e}")
+        print(f"Answer: {answer}")
+        if grade(answer, case):
+            print("✅ Passed")
+            grade_counter += 1
+        else:
+            print("❌ Failed")
+        print()
+
+    print (f"Current score: {grade_counter}/{grade_total}")
+
+loop()
+

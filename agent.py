@@ -1,3 +1,5 @@
+# An eval only catches failures you wrote rules for. The model always finds a new shape. Tightening the ruler is the ongoing job, not a one-time task.
+
 import ollama
 
 MODEL = "llama3.1:8b"

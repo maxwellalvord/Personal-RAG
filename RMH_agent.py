@@ -2,6 +2,7 @@
 import os
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import re 
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -33,10 +34,17 @@ def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 # Corpus setup
-chunks = []  
+chunks = []
+
+def clean(text):
+    text = re.sub(r"\{%.*?%\}", " ", text)  # GitBook {% hint %} templating
+    text = re.sub(r"<[^>]+>", " ", text)     # every HTML tag -> a space
+    text = re.sub(r"\s+", " ", text)          # collapse runs of whitespace
+    return text.strip()  
+
 for filename in os.listdir("data"):                                                             
     if filename.endswith(".md"):
-        text = open(f"data/{filename}").read()
+        text = clean(open(f"data/{filename}").read())
         chunks.append({"source": filename, "text": text})
 
 texts = [c["text"] for c in chunks]

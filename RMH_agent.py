@@ -34,7 +34,6 @@ def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 # Corpus setup
-chunks = []
 
 def clean(text):
     text = re.sub(r"\{%.*?%\}", " ", text)  # GitBook {% hint %} templating
@@ -42,17 +41,11 @@ def clean(text):
     text = re.sub(r"\s+", " ", text)          # collapse runs of whitespace
     return text.strip()  
 
+chunks = []
 for filename in os.listdir("data"):
     if filename.endswith(".md"):
-        raw = open(f"data/{filename}").read()      # raw — do NOT clean yet
-        pieces = raw.split("</details>")           # split while the tag still exists
-        for i, piece in enumerate(pieces):
-            piece = clean(piece)                    # clean each piece individually
-            if piece:                               # skip empty fragments
-                chunks.append({
-                    "source": f"{filename}#{i}",
-                    "text": piece,
-                })
+        text = clean(open(f"data/{filename}").read())
+        chunks.append({"source": filename, "text": text})
 
 texts = [c["text"] for c in chunks]
 t_emb = model.encode(texts)
@@ -67,10 +60,6 @@ def retrieve(question):
     for chunk in chunks:
         chunk["score"] = cosine_similarity(q_emb, chunk["embedding"])
     return sorted(chunks, key=lambda c: c["score"], reverse=True)
-
-ranked = retrieve("I have some tomatoes that need to go to store 2, help me.")
-for rank, chunk in enumerate(ranked, start=1):
-    print(f"{rank}. {chunk['source']:30} {chunk['score']:.3f}")
 
 # inspector scores the cases
 def score_case(ranked, case):
@@ -94,3 +83,45 @@ def run_benchmark(golden_set):
     print(f"\nMean Reciprocal Rank (MRR): {mmr:.3f}")
 
 run_benchmark(golden_set)
+
+
+
+
+# ---- CHUNKING EXPERIMENTS  ----
+# Tested three strategies against the same golden set. One-chunk-per-file won.
+# Docs are short and single-topic (one RMH workflow each), so they're already
+# atomic — splitting them fragments a coherent idea instead of separating ideas.
+#
+#   Strategy                     MRR
+#   one chunk per file           0.517   <- best, currently in use
+#   fixed-size, swept (best 1100) <0.4
+#   split on </details>          0.293   <- worst; one doc had 9 tables -> 9
+#                                            shards that flooded the rankings
+#
+# --- Experiment A: split on </details> tag boundary ---
+# for filename in os.listdir("data"):
+#     if filename.endswith(".md"):
+#         raw = open(f"data/{filename}").read()      # split raw: clean() strips the tag
+#         pieces = raw.split("</details>")
+#         for i, piece in enumerate(pieces):
+#             piece = clean(piece)
+#             if piece:
+#                 chunks.append({"source": f"{filename}#{i}", "text": piece})
+#
+# --- Experiment B: fixed-size chunking with overlap ---
+# CHUNK_SIZE = 1100
+# OVERLAP = 150
+# def chunk_text(text, size=CHUNK_SIZE, overlap=OVERLAP):
+#     pieces = []
+#     start = 0
+#     while start < len(text):
+#         pieces.append(text[start:start + size])
+#         start += size - overlap
+#     return pieces
+# for filename in os.listdir("data"):
+#     if filename.endswith(".md"):
+#         text = clean(open(f"data/{filename}").read())
+#         for i, piece in enumerate(chunk_text(text)):
+#             piece = piece.strip()
+#             if piece:
+#                 chunks.append({"source": f"{filename}#{i}", "text": piece})

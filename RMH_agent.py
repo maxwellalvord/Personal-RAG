@@ -24,7 +24,7 @@ golden_set = [
         "must_contain": ["Supplier Order No."],
     },
     {
-        "question": "Giant box of bananas we got is here, what do I do next?",
+        "question": " A giant box of bananas we ordered is here, what do I do next?",
         "must_contain": ["Supplier Order No."],
     },
 ]
@@ -42,15 +42,24 @@ def clean(text):
     text = re.sub(r"\s+", " ", text)          # collapse runs of whitespace
     return text.strip()  
 
-for filename in os.listdir("data"):                                                             
+for filename in os.listdir("data"):
     if filename.endswith(".md"):
-        text = clean(open(f"data/{filename}").read())
-        chunks.append({"source": filename, "text": text})
+        raw = open(f"data/{filename}").read()      # raw — do NOT clean yet
+        pieces = raw.split("</details>")           # split while the tag still exists
+        for i, piece in enumerate(pieces):
+            piece = clean(piece)                    # clean each piece individually
+            if piece:                               # skip empty fragments
+                chunks.append({
+                    "source": f"{filename}#{i}",
+                    "text": piece,
+                })
 
 texts = [c["text"] for c in chunks]
 t_emb = model.encode(texts)
 for chunk, vector in zip(chunks, t_emb):
     chunk["embedding"] = vector             # Attach each vector to the chunk for later retrieval. 
+
+print(len(chunks))
 
 # worker retrieves ranked chunks for one question
 def retrieve(question):
@@ -58,6 +67,10 @@ def retrieve(question):
     for chunk in chunks:
         chunk["score"] = cosine_similarity(q_emb, chunk["embedding"])
     return sorted(chunks, key=lambda c: c["score"], reverse=True)
+
+ranked = retrieve("I have some tomatoes that need to go to store 2, help me.")
+for rank, chunk in enumerate(ranked, start=1):
+    print(f"{rank}. {chunk['source']:30} {chunk['score']:.3f}")
 
 # inspector scores the cases
 def score_case(ranked, case):

@@ -5,7 +5,7 @@ import numpy as np
 import re 
 from rank_bm25 import BM25Okapi
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
 
 golden_set = [
@@ -127,9 +127,9 @@ bm25 = BM25Okapi(tokenized_corpus)
 
 print(len(chunks))
 
-# worker retrieves ranked chunks for one question
+# worker retrieves ranked chunks for one question -- BM25 and dense embeddings are combined with weights to produce a final ranking HOWEVER BM25 is currently disabled (w_bm25=0.0) because it was not helping the MRR score. It may be useful in the future if we have a larger corpus of documents to search through.
 def retrieve(question, k=60, w_dense=1.0, w_bm25=0.0):
-    q_emb = model.encode(question)
+    q_emb = model.encode("Represent this sentence for searching relevant passages: " + question)
     for c in chunks:
         c["dense"] = cosine_similarity(q_emb, c["embedding"])
 
@@ -145,7 +145,6 @@ def retrieve(question, k=60, w_dense=1.0, w_bm25=0.0):
     for c in chunks:
         c["score"] = w_dense * 1/(k + c["dense_rank"]) + w_bm25 * 1/(k + c["bm25_rank"])
 
-    print(w_bm25, w_dense, k)
     return sorted(chunks, key=lambda c: c["score"], reverse=True)
 
 # inspector scores the cases

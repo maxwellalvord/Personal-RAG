@@ -3,8 +3,10 @@ import os
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import re 
+from rank_bm25 import BM25Okapi
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
+
 
 golden_set = [
     # ---- add_customer_record.md (customer) ----
@@ -120,13 +122,30 @@ t_emb = model.encode(texts)
 for chunk, vector in zip(chunks, t_emb):
     chunk["embedding"] = vector             # Attach each vector to the chunk for later retrieval. 
 
+tokenized_corpus = [c["text"].lower().split() for c in chunks]
+bm25 = BM25Okapi(tokenized_corpus)
+
 print(len(chunks))
 
 # worker retrieves ranked chunks for one question
-def retrieve(question):
+def retrieve(question, k=60, w_dense=1.0, w_bm25=0.0):
     q_emb = model.encode(question)
-    for chunk in chunks:
-        chunk["score"] = cosine_similarity(q_emb, chunk["embedding"])
+    for c in chunks:
+        c["dense"] = cosine_similarity(q_emb, c["embedding"])
+
+    bm25_scores = bm25.get_scores(question.lower().split())
+    for c, s in zip(chunks, bm25_scores):
+        c["bm25"] = s
+
+    for rank, c in enumerate(sorted(chunks, key=lambda c: c["dense"], reverse=True), start=1):
+        c["dense_rank"] = rank
+    for rank, c in enumerate(sorted(chunks, key=lambda c: c["bm25"], reverse=True), start=1):
+        c["bm25_rank"] = rank
+
+    for c in chunks:
+        c["score"] = w_dense * 1/(k + c["dense_rank"]) + w_bm25 * 1/(k + c["bm25_rank"])
+
+    print(w_bm25, w_dense, k)
     return sorted(chunks, key=lambda c: c["score"], reverse=True)
 
 # inspector scores the cases

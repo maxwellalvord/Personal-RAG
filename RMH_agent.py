@@ -7,28 +7,96 @@ import re
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 golden_set = [
-    {
-        "question": "I just started working here, how do I get set up?",
-        "must_contain": ["numeric ID", "Login ID"],
+    # ---- add_customer_record.md (customer) ----
+    {   # close
+        "question": "How do I create a new customer record with their billing info?",
+        "must_contain": ["Billing Information"],
     },
-    {
-        "question": "I have some tomatoes that need to go to store 2, help me.",
-        "must_contain": ["Inter-Store", "Transfer From"],
+    {   # far
+        "question": "A regular shopper wants to set up an account so we can mail their receipts. What do I do?",
+        "must_contain": ["Billing Information"],
     },
-    {
-        "question": "I brought a bunch of grapes to the warehouse offsite but they are still showing in this stores inventory, how do I fix that?",
-        "must_contain": ["Inter-Store", "Transfer From"],
+    {   # far
+        "question": "A shopper has two houses and wants deliveries sent to whichever they're at. How do I store both?",
+        "must_contain": ["Set Primary"],
     },
-    {
-        "question": "A shipment is coming in of some apples, help me get them in the system.",
+
+    # ---- add_employee_accounts.md (user accounts) ----
+    {   # close
+        "question": "How do I add a new user account in RMH?",
+        "must_contain": ["Login ID"],
+    },
+    {   # far
+        "question": "I just started here and need my own way to sign in to the register. How does my manager set that up?",
+        "must_contain": ["Login ID"],
+    },
+    {   # far
+        "question": "How do I control what a new hire is allowed to do at the register versus the back office?",
+        "must_contain": ["User Roles"],
+    },
+
+    # ---- add_store_supplier.md (supplier) — near-twin cluster ----
+    {   # close
+        "question": "How do I add a new supplier to the store?",
+        "must_contain": ["Accepted Currency"],
+    },
+    {   # far
+        "question": "We stopped buying from a vendor but I don't want to lose the history. What should I do instead of removing them?",
+        "must_contain": ["Deactivating a supplier"],
+    },
+    {   # far
+        "question": "The company we buy our produce from won't take orders under a certain dollar amount. Where do I record that?",
+        "must_contain": ["Min. Order Amt."],
+    },
+
+    # ---- create_purchase_order.md (PO) — near-twin cluster ----
+    {   # close
+        "question": "How do I create a purchase order?",
         "must_contain": ["Supplier Order No."],
     },
-    {
-        "question": " A giant box of bananas we ordered is here, what do I do next?",
+    {   # far
+        "question": "A shipment of apples we ordered from our vendor is arriving. How do I record that incoming order?",
         "must_contain": ["Supplier Order No."],
+    },
+    {   # far
+        "question": "Who authorized the order — where do I note the person who requested it when buying stock?",
+        "must_contain": ["Purchaser"],
+    },
+
+    # ---- create_transfer_out.md (transfer) — near-twin cluster ----
+    {   # close
+        "question": "How do I create a transfer out?",
+        "must_contain": ["Inter-Store"],
+    },
+    {   # far
+        "question": "I moved a bunch of grapes to our offsite warehouse but they still show in this store's stock. How do I fix that?",
+        "must_contain": ["Transfer From"],
+    },
+    {   # far
+        "question": "I need to send some tomatoes over to our other location. How do I do that in the system?",
+        "must_contain": ["Inter-Store"],
+    },
+
+    # ---- create_standard_item.md (item) — near-twin cluster ----
+    {   # close
+        "question": "How do I add a new standard item to inventory?",
+        "must_contain": ["Item Lookup Code"],
+    },
+    {   # far
+        "question": "I want the system to warn me to restock cans when they get low. Where do I set that threshold?",
+        "must_contain": ["Reorder Point"],
+    },
+
+    # ---- two extra hard cluster cases (supplier vs PO discrimination) ----
+    {   # far — supplier, not PO
+        "question": "Where do I save a vendor's phone number and website when I first set them up?",
+        "must_contain": ["Web Page"],
+    },
+    {   # far — PO, not supplier
+        "question": "The vendor requires a minimum spend per order and I want a warning if my order is too small. Where's that shown?",
+        "must_contain": ["Min. Order Value"],
     },
 ]
-
 
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
